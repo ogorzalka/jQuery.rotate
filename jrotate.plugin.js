@@ -8,7 +8,7 @@
 /*
  * usage: 
  * $('.selector').rotate() // if no angle option, retrieve the standard "transform" option in the cascading style sheet
- * $('.selector').rotate({angle:50}) // force the angle value to 50 degree
+ * $('.selector').rotate({angle:50}) // force the angle value to 50 degrees
  * 
  */
  
@@ -46,14 +46,15 @@ jQuery.extend(jQuery.support, { 'transform': chk_support_transform() });
        baseHeight = $this.outerHeight(), // height of the element
        baseWidth = $this.outerWidth(), // width of the element
        blockDisplay = $this.css('display'), // display property
-       coeffMargin = (blockDisplay === 'inline') ? 1.4 : 2, // margin coefficient
+       float = $this.css('float'), // float status
+       coeffMargin = (float == 'none' && blockDisplay === 'inline') ? 2 : 2, // margin coefficient
        transformExpr = new RegExp(/rotate\((-?[0-9]{0,3})deg\)/), // rotate propertie regexp
        angleMatch = $this.addClass('ie-rotate').css('transform').match(transformExpr), // test if transform property match rotate value
        angle = (opts.angle == 'csstransform-property') ? angleMatch[1] : opts.angle, // rotation angle value
        rad = angle * (Math.PI * 2 / 360),
        costheta = Math.cos(rad), // first IE-filter property
        sintheta = Math.sin(rad), // second IE-filter property
-       filter_expr = "progid:DXImageTransform.Microsoft.Matrix(sizingMethod='auto expand',M11="+costheta+",M12="+(-sintheta)+",M21="+sintheta+",M22="+costheta+");",
+       filter_expr = "progid:DXImageTransform.Microsoft.Matrix(sizingMethod='auto expand',M11="+costheta+",M12="+(-sintheta)+",M21="+sintheta+",M22="+costheta+")";
 
        // adjust appearance
        $this.css({
@@ -71,7 +72,16 @@ jQuery.extend(jQuery.support, { 'transform': chk_support_transform() });
        marginTopBottom = -(newHeight-baseHeight)/coeffMargin, // margin top bottom
        marginLeftRight = -(newWidth-baseWidth)/coeffMargin; // margin left right
        
-       $this.css('margin',marginTopBottom+' '+marginLeftRight); // adjusts margins
+       var cssAfter = {};
+       if (float == 'left' || float == 'none')
+         cssAfter['marginLeft'] = marginLeftRight;
+       if (float == 'right' || float == 'none')
+         cssAfter['marginRight'] = marginLeftRight;
+       if (float == 'left' || float == 'right' || float == 'none') 
+         cssAfter['marginTop'] = marginTopBottom;
+       cssAfter['marginBottom'] = marginTopBottom;
+       
+       $this.css(cssAfter); // adjusts margins
        
        return true;
      });
