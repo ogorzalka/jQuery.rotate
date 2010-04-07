@@ -7,8 +7,8 @@
  */
 /*
  * usage: 
- * $('.selector').rotate() // if no angle option, retrieve the standard "transform" option in the cascading style sheet
- * $('.selector').rotate({angle:50}) // force the angle value to 50 degrees
+ * $('.selector').css('transform':'rotate(50deg)') or $('.selector').css('rotate',50) // if no angle option, retrieve the standard "transform" option in the cascading style sheet
+ * $('.selector').animate({transform:'rotate(-180)'}) or $('.selector').animate({'rotate:-180}) // force the angle value to 50 degrees
  * 
  */
  
@@ -43,15 +43,6 @@ function chk_support_filter() {
    return false;
 }
 
-function getTransformProperty(element) {
-    var properties = ['transformProperty', 'webkitTransform', 'MozTransform', 'mozTransform', 'oTransform', 'msTransform'];
-    var p;
-    while (p = properties.shift()) {
-        if (typeof element.style[p] != 'undefined') { return p; }
-    }
-    return 'transform';
-}
-
 jQuery.extend(jQuery.support, {
    'transform': chk_support_transform(),
    'filter': chk_support_filter()
@@ -60,138 +51,142 @@ jQuery.extend(jQuery.support, {
 ;(function($) {
    // CSS transform proporty support
    var cssProxied = $.fn.css;
-   $.fn.css = function (arg) {
-       if ( typeof $.props['transform'] == 'undefined' && ( arg == 'transform' || ( typeof arg == 'object' && typeof arg['transform'] != 'undefined') ) ) {
-           $.props['transform'] = getTransformProperty(this.get(0));
-       }
-       if (arg == 'transform') { arg = $.props['transform']; }
-       return cssProxied.apply(this, arguments);
-   };
-
-   // rotate function
-   $.fn.rotate = function(val) {
-     if (!$.support.transform && !$.support.filter) { return; }; // if browser support transform or don't support filter, we return
-
-     return this.each(function() {
-       var $this = $(this);
-       var style = $this.css('transform') || 'none';
-       
-       if (typeof val == 'undefined')
+   
+   function getTransformProperty(element)
+   {
+       // Try transform first for forward compatibility
+       var properties = ['transformProperty', 'webkitTransform', 'MozTransform', 'mozTransform', 'oTransform', 'msTransform'];
+       var p;
+       while (p = properties.shift())
        {
-           if (style)
+           if (typeof element.style[p] != 'undefined')
            {
-               if (cos = ($this.css('transform')).match(/^matrix\((.*)\)/)) {
-                  sin = cos[1].split(',')[1].replace(/^\s+/g,'').replace(/\s+$/g,'');
-                  angle = Math.round(Math.asin(sin)* 180/Math.PI);
-               } else if (angleMatch = $this.css('transform').match(/rotate\((-?[0-9]{0,3})deg\)/)) {
-                  angle = angleMatch[1]
-               }
+               return p;
            }
-       } else {
-          angle = val;
        }
-       if ($.support.transform) {
-           $this.css({
-               'transform':'rotate(' + angle +'deg)'
-           });
-       }
-       else if ($.support.filter) {
-           if (!$this.data('baseHeight')) {
-              $this.data({
-                 'baseHeight':$this.outerHeight(),
-                 'baseWidth':$this.outerWidth()
-              });
-          }
-          
-          var baseHeight = $this.data('baseHeight'), // height of the element
-             baseWidth = $this.data('baseWidth'), // width of the element
-             blockDisplay = $this.css('display'), // display property
-             elemFloat = $this.css('float'), // float status
-             coeffMargin = (elemFloat == 'none' && blockDisplay === 'inline') ? 2 : 2, // margin coefficient
-             rad = angle * (Math.PI * 2 / 360),
-             costheta = Math.cos(rad), // first IE-filter property
-             sintheta = Math.sin(rad), // second IE-filter property
-             filter_expr = "progid:DXImageTransform.Microsoft.Matrix(sizingMethod='auto expand',M11="+costheta+",M12="+(-sintheta)+",M21="+sintheta+",M22="+costheta+")";
-             
-          // adjust appearance
-          $this.css({
-            position:'relative',
-            overflow:'visible',
-            width:(blockDisplay == 'block') ? baseWidth : 'auto',
-            height:(blockDisplay == 'block') ? baseHeight : 'auto',
-            display: (blockDisplay == 'inline' || blockDisplay == 'block') ? 'inline-block' : blockDisplay
+       return 'transform';
+   }
+   
+
+   function _angle(expr) {
+      if ( expr == 'none') {
+         return 0;
+      }
+      if ( angleMatch = expr.toString().match(/^(rotate)?\(?(-?\d*\.?\d*)[deg]?\)?/) ) {
+         return parseInt(angleMatch[2]);
+      }
+      return false;
+   }
+   
+   function _css_rotate(elem,angle) {
+      var raw_value = _angle(angle);
+      var css3_value ='rotate('+raw_value+'deg)';
+      var arg = $.props['transform'];
+      if ($.support.filter) {
+         ieRotate(elem,raw_value);
+      }
+      cssProxied.call(elem,arg,css3_value); 
+   }
+   
+   function ieRotate(elem,angle) {
+       //angle = parseInt(angle);
+       if (!elem.data('baseHeight')) {
+          elem.data({
+             'baseHeight':elem.outerHeight(),
+             'baseWidth':elem.outerWidth(),
+             'marginLeft':parseInt(cssProxied.call(elem,'margin-left')),
+             'marginRight':parseInt(cssProxied.call(elem,'margin-right')),
+             'marginTop':parseInt(cssProxied.call(elem,'margin-top')),
+             'marginBottom':parseInt(cssProxied.call(elem,'margin-bottom'))
           });
-
-          $this.get(0).style.filter = filter_expr; // apply the demoniac filter
-          
-          // news sizes
-          var newHeight = $this.outerHeight(), // new height of the element
-          newWidth = $this.outerWidth(), // new width of the element
-          marginTopBottom = -(newHeight-baseHeight)/coeffMargin, // margin top bottom
-          marginLeftRight = -(newWidth-baseWidth)/coeffMargin; // margin left right
-
-          var cssAfter = {};
-          cssAfter['marginLeft'] = marginLeftRight;
-          cssAfter['marginRight'] = marginLeftRight;
-          if (elemFloat == 'left' || elemFloat == 'right' || elemFloat == 'none') 
-            cssAfter['marginTop'] = marginTopBottom;
-          cssAfter['marginBottom'] = marginTopBottom;
-          cssAfter['transform'] = 'rotate(' + angle +'deg)';
-
-          $this.css(cssAfter); // adjusts margins
        }
-       return true;
-     });
+
+       var baseHeight = elem.data('baseHeight'), // height of the element
+          baseWidth = elem.data('baseWidth'), // width of the element
+          blockDisplay = cssProxied.call(elem,'display'), // display property
+          elemFloat = cssProxied.call(elem,'float'), // float status
+          coeffMargin = 2, // margin coefficient
+          rad = angle * (Math.PI * 2 / 360),
+          costheta = Math.cos(rad), // first IE-filter property
+          sintheta = Math.sin(rad), // second IE-filter property
+          filter_expr = "progid:DXImageTransform.Microsoft.Matrix(sizingMethod='auto expand',M11="+costheta+",M12="+(-sintheta)+",M21="+sintheta+",M22="+costheta+")";
+       
+       // adjust appearance
+       cssProxied.call(elem, {
+          position:'relative',
+          overflow:'visible',
+          width:(blockDisplay == 'inline' || blockDisplay == 'block') ? baseWidth : 'auto',
+          height:(blockDisplay == 'inline' || blockDisplay == 'block') ? baseHeight : 'auto',
+          display:(blockDisplay == 'inline' || blockDisplay == 'block') ? 'inline-block' : blockDisplay
+       });
+       cssProxied.call(elem,'filter',filter_expr);
+
+      // news sizes
+      var newHeight = elem.outerHeight(), // new height of the element
+      newWidth = elem.outerWidth(), // new width of the element
+      marginTopBottom = -(newHeight-baseHeight)/coeffMargin, // margin top bottom
+      marginLeftRight = -(newWidth-baseWidth)/coeffMargin; // margin left right
+
+      var cssAfter = {};
+      cssAfter['marginLeft'] = marginLeftRight+elem.data('marginLeft');
+      cssAfter['marginRight'] = marginLeftRight+elem.data('marginRight');
+      if (elemFloat == 'left' || elemFloat == 'right' || elemFloat == 'none') 
+        cssAfter['marginTop'] = marginTopBottom+elem.data('marginTop');
+      cssAfter['marginBottom'] = marginTopBottom+elem.data('marginBottom');
+      cssAfter['transform'] = 'rotate(' + angle +'deg)';
+      cssProxied.call(elem,cssAfter);  
+   }
+
+   $.fn.css = function (arg,value) {
+       if ( 
+          ( typeof $.props['transform'] == 'undefined' && ( arg == 'transform' || ( typeof arg == 'object' && typeof arg['transform'] != 'undefined') ) )
+          || ( typeof $.props['transform'] == 'undefined' && ( arg == 'rotate' || ( typeof arg == 'object' && typeof arg['rotate'] != 'undefined') ) )
+           ) {
+           $.props['transform'] = getTransformProperty(this.get(0));
+           
+           if ($.props['transform'] == 'undefined') {
+              $.props['transform'] = 'none';
+           }
+       }
+
+       if (arg == 'transform') { arg = $.props['transform']; }
+       
+       if (typeof value == 'undefined' && (arg instanceof Object) === false) {
+          return cssProxied.apply(this, arguments);
+       }
+
+       else if (arg instanceof Array || arg instanceof Object) {
+          for(key in arg) {
+             if (key.match(/^rotate$/) || key.match(/^transform$/)) {
+                _css_rotate(this,arg[key]);
+             }
+             else {
+                cssProxied.call(this,key,arg[key]);
+             }
+          }
+       }
+       else if ( (arg == 'transform' && _angle(value) ) || arg == 'rotate' ) {
+          _css_rotate(this,value);
+       } else {
+          cssProxied.call(this,arg,value);
+       }
+       return this;
    };
 
 
-   var curProxied = $.fx.prototype.cur;
-   
-   $.fx.prototype.cur = function () {
-       if (this.prop == 'rotate') {
-          return parseFloat($(this.elem).rotate());
-       }
-       return curProxied.apply(this, arguments);
-   }
-
-   $.fx.step.rotate = function (fx) { $(fx.elem).rotate(fx.now); }
-
-   // Rotation animation, so cool !
-   var animateProxied = $.fn.animate;
-   $.fn.animate = function (prop) {
-       if (typeof prop['rotate'] != 'undefined') {
-           var m = prop['rotate'].toString().match(/^(([+-]=)?(-?\d+(\.\d+)?))(.+)?$/);
-           prop['rotate'] = m[1];
-       }
-
-       var matchRotate = $(this).css('transform').match(/rotate\((-?[0-9]{0,3})deg\)/);
-       if (!matchRotate || matchRotate[1] != m[0]) {
-          return animateProxied.apply(this, arguments);
-       }
-   }
-
-   var _o_css = $.fn.css;
-   
-   // Support for css rotate
-   $.fn.css = function(prop,value){
-      if (prop instanceof Array || prop instanceof Object ) {
-         for(key in prop) {
-            if (key.match(/^rotate$/) || key.match(/^transform$/)) {
-               value = (key.match(/^rotate$/)) ? 'rotate('+prop[key]+'deg)' : prop[key];
-               _o_css.call(this,'transform',value);
-            }
-            else {
-               _o_css.call(this,key,prop[key]);
-            }
-         }
-      }
-      else if ( value && (prop == 'transform' && value.match(/rotate\(-?[0-9]{0,3}deg\)/) ) || prop == 'rotate' ) {
-         value = (prop == 'rotate') ? 'rotate('+value+'deg)' : value;
-         _o_css.call(this,'transform',value);
-      }
-      else {
-         return _o_css.apply(this,arguments);
-      }
-   };
+   // We override the animation for all of these color styles
+   $.each(['rotate','transform'], function(i,attr){
+      $.fx.step[attr] = function(fx) {
+			if ( fx.state == 0 ) {
+			   if (typeof $( fx.elem ).css('transform') == 'undefined') {
+			      fx.start = 0;
+			   } else {
+			      fx.start = _angle( $( fx.elem ).css('transform') );
+			   }
+				fx.end = _angle( fx.end );
+			}
+			$(fx.elem).css('rotate',fx.now);
+		};
+   });
 
 })(jQuery);
