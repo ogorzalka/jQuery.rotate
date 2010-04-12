@@ -1,4 +1,4 @@
-/*!
+/*
  * jQuery.rotate for IE
  * http://clearideaz.com/
  *
@@ -47,6 +47,7 @@ jQuery.extend(jQuery.support, {
    'transform': chk_support_transform(),
    'filter': chk_support_filter()
 });
+
 
 ;(function($) {
    // CSS transform proporty support
@@ -103,20 +104,21 @@ jQuery.extend(jQuery.support, {
 
        var baseHeight = elem.data('baseHeight'), // height of the element
           baseWidth = elem.data('baseWidth'), // width of the element
+          dis = Math.min(baseWidth, baseHeight) / 2,
           blockDisplay = cssProxied.call(elem,'display'), // display property
           elemFloat = cssProxied.call(elem,'float'), // float status
           coeffMargin = 2, // margin coefficient
           rad = angle * (Math.PI * 2 / 360),
-          costheta = Math.cos(rad), // first IE-filter property
-          sintheta = Math.sin(rad), // second IE-filter property
-          filter_expr = "progid:DXImageTransform.Microsoft.Matrix(sizingMethod='auto expand',M11="+costheta+",M12="+(-sintheta)+",M21="+sintheta+",M22="+costheta+")";
+          cos = Math.cos(rad), // first IE-filter property
+          sin = Math.sin(rad), // second IE-filter property
+          filter_expr = "progid:DXImageTransform.Microsoft.Matrix(sizingMethod='auto expand',M11="+cos+",M12="+(-sin)+",M21="+sin+",M22="+cos+")";
        
        // adjust appearance
        cssProxied.call(elem, {
           position:'relative',
           overflow:'visible',
-          width:(blockDisplay == 'inline' || blockDisplay == 'block') ? baseWidth : 'auto',
-          height:(blockDisplay == 'inline' || blockDisplay == 'block') ? baseHeight : 'auto',
+          width:baseWidth,
+          height:baseHeight,
           display:(blockDisplay == 'inline' || blockDisplay == 'block') ? 'inline-block' : blockDisplay
        });
        cssProxied.call(elem,'filter',filter_expr);
@@ -134,13 +136,14 @@ jQuery.extend(jQuery.support, {
         cssAfter['marginTop'] = marginTopBottom+elem.data('marginTop');
       cssAfter['marginBottom'] = marginTopBottom+elem.data('marginBottom');
       cssAfter['transform'] = 'rotate(' + angle +'deg)';
+
       cssProxied.call(elem,cssAfter);  
    }
 
    $.fn.css = function (arg,value) {
        if ( 
-          ( typeof $.props['transform'] == 'undefined' && ( arg == 'transform' || ( typeof arg == 'object' && typeof arg['transform'] != 'undefined') ) )
-          || ( typeof $.props['transform'] == 'undefined' && ( arg == 'rotate' || ( typeof arg == 'object' && typeof arg['rotate'] != 'undefined') ) )
+          ( typeof this.get(0) != 'undefined' && typeof $.props['transform'] == 'undefined' && ( arg == 'transform' || ( typeof arg == 'object' && typeof arg['transform'] != 'undefined') ) )
+          || ( typeof this.get(0) != 'undefined' && typeof $.props['transform'] == 'undefined' && ( arg == 'rotate' || ( typeof arg == 'object' && typeof arg['rotate'] != 'undefined') ) )
            ) {
            $.props['transform'] = getTransformProperty(this.get(0));
            
@@ -173,20 +176,15 @@ jQuery.extend(jQuery.support, {
        return this;
    };
 
-
    // We override the animation for all of these color styles
    $.each(['rotate','transform'], function(i,attr){
       $.fx.step[attr] = function(fx) {
-			if ( fx.state == 0 ) {
-			   if (typeof $( fx.elem ).css('transform') == 'undefined') {
-			      fx.start = 0;
-			   } else {
-			      fx.start = _angle( $( fx.elem ).css('transform') );
-			   }
-				fx.end = _angle( fx.end );
-			}
-			$(fx.elem).css('rotate',fx.now);
-		};
+      if ( fx.state == 0 ) {
+        fx.start = (typeof $( fx.elem ).css('transform') == 'undefined') ? 0 : _angle( $( fx.elem ).css('transform') );
+        fx.end = _angle( fx.end );
+      }
+      $(fx.elem).css('rotate',fx.now);
+    };
    });
 
 })(jQuery);
